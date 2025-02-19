@@ -1,9 +1,11 @@
-import { Table, Column, Model, DataType } from 'sequelize-typescript';
+import { Table, Column, Model, DataType, PrimaryKey, HasMany } from 'sequelize-typescript';
+import { Category } from 'src/categories/models/category.model';
 import { Roles } from 'src/utility/common/user-roles.enum';
 @Table({ tableName: 'users', timestamps: true })
 export class User extends Model<User> {
   
-  @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true })
+  @PrimaryKey
+  @Column({ type: DataType.INTEGER, autoIncrement: true})
   id: number;
 
   @Column({ type: DataType.STRING, allowNull: false, unique: true })
@@ -38,7 +40,24 @@ export class User extends Model<User> {
   })
   updatedAt: Date;
 
+  // @Column({ type: DataType.BOOLEAN, defaultValue: false })
+  // isEmailVerified: boolean;
 
- 
+  // @Column({ type: DataType.STRING, allowNull: true })
+  // refreshToken?: string;
+
+  // @Column({ type: DataType.STRING, allowNull: true })
+  // twoFactorSecret?: string;
+
+  // @Column({ type: DataType.BOOLEAN, defaultValue: false })
+  // isTwoFactorEnabled: boolean;
+
+  // relations in sequelize
+   // one user has many categories 
+  @HasMany(() => Category)
+  categories: Category[];
+
+ // Thuesday --> Do authentication reguarly -- complete categories api 
+
 }
 

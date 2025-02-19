@@ -11,6 +11,7 @@ dotenv.config();
 import { JwtModule } from '@nestjs/jwt';
 import { CurrentUserMiddleware } from './utility/middlewares/current-user.middleware';
 import { MiddlewareConsumer, RequestMethod } from '@nestjs/common';
+import { CategoriesModule } from './categories/categories.module';
 @Module({
   imports: [ConfigModule.forRoot({envFilePath:'.env',isGlobal:true})
     ,DatabaseModule,UsersModule,
@@ -18,7 +19,8 @@ import { MiddlewareConsumer, RequestMethod } from '@nestjs/common';
       secret: process.env.JWT_SECRET_KEY, 
       signOptions: { expiresIn: process.env.JWT_EXPIRES_IN 
 
-      }})
+      }}),
+    CategoriesModule
   ],
   controllers: [AppController,UsersController],
   providers: [AppService,UsersService],
