@@ -1,5 +1,6 @@
-import { Table, Model, Column, DataType, PrimaryKey, ForeignKey, BelongsTo, HasOne } from "sequelize-typescript";
+import { Table, Model, Column, DataType, PrimaryKey, ForeignKey, BelongsTo, HasOne, HasMany } from "sequelize-typescript";
 import { User } from "src/users/models/user.model";
+import { Product } from "src/products/models/product.model";
 
 
 @Table({tableName: 'categories', timestamps: true, paranoid: true})
@@ -33,14 +34,17 @@ export class Category extends Model<Category> {
       @Column({ type: DataType.DATE})
       deletedAt: Date ;
 
-      // relations in sequelize 
-
-      @ForeignKey(() => User)
+      // Relationship between category and user
+      @ForeignKey(() => User) 
       // @Column({type: DataType.INTEGER, allowNull: false})
       userId: number
-
+       
       @BelongsTo(() => User, {as : 'addedBy'})
       user: User
+
+      // Relationship between category and product
+      @HasMany(() => Product)
+      products: Product[]
     
     }
     

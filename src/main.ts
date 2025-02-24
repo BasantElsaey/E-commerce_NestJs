@@ -1,9 +1,9 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
-import { UsersService } from './users/users.service';
+import { UsersService } from './users/services/users.service';
 import { JwtService } from '@nestjs/jwt';
-import { CurrentUserMiddleware } from './utility/middlewares/current-user.middleware';
+import { CurrentUserMiddleware } from './middlewares/current-user.middleware';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);

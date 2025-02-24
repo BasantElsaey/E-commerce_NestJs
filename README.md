@@ -26,6 +26,42 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+This is E-commerce project developed using NestJS framework. It is a full-stack application that allows users to manage their products, categories, reviews, and orders.
+
+## Features
+
+- Authentication and authorization
+- User management
+- Category management
+- Product management
+- Order management
+- Review management
+- Cart management
+- Payment integration
+- Shipping integration
+- Notification integration
+- Email integration
+- SMS integration
+- Invoice generation
+- Order tracking
+
+## Technologies Used
+
+- NestJS
+- TypeScript
+- Sequelize
+- PostgreSQL
+- JWT
+- Bcrypt
+- Exception filters
+- Validation
+<!-- - Swagger
+- Docker
+- CI/CD
+- Testing
+- Production deployment -->
+
+
 ## Project setup
 
 ```bash

@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { UsersService } from './users.service';
-import { UsersController } from './users.controller';
+import { UsersService } from './services/users.service';
+// import { UsersController } from './controllers/users.controller';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { User } from './models/user.model';
 import { JwtModule } from '@nestjs/jwt';
@@ -12,7 +12,7 @@ import { JwtModule } from '@nestjs/jwt';
       signOptions: {expiresIn:process.env.JWT_EXPIRES_IN},
     }),
 ],
-  controllers: [UsersController],
+  // controllers: [UsersController],
   providers: [UsersService],
   exports : [SequelizeModule, UsersService]
 })
