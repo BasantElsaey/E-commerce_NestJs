@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Body, 
-  Patch, Param, Delete,UseGuards,Req, UnauthorizedException } from '@nestjs/common';
+  Patch, Param, Delete,UseGuards,Req, UnauthorizedException, 
+  Query} from '@nestjs/common';
 import { AuthService } from '../services/auth.service';
 import { CreateAuthDto } from '../dto/create-auth.dto';
 import { UpdateAuthDto } from '../dto/update-auth.dto';
@@ -16,7 +17,7 @@ import { ResetPasswordDto } from '../dto/reset-password.dto';
 import { ForgotPasswordDto } from '../dto/forgot-password.dto';
 import { ChangePasswordDto } from '../dto/change-password.dto';
 import { VerifyEmailDto } from '../dto/verify-email.dto';
-import { UpdateProfileDto } from '../dto/update-profile.dto';
+import {UpdateProfileDto} from '../dto/update-profile.dto'
 
 @Controller('auth')
 export class AuthController {
@@ -56,19 +57,23 @@ export class AuthController {
 @UseGuards(JwtAuthGuard)
 async changePassword(@CurrentUser() user : User, @Body() changePasswordDto:ChangePasswordDto ) 
 : Promise<{ message: string }> {
-    return await this.authService.changePassword(user.id, changePasswordDto.oldPassword, changePasswordDto.newPassword);
+    return await this.authService
+    .changePassword(user.id, changePasswordDto.oldPassword, changePasswordDto.newPassword, changePasswordDto.confirmNewPassword);
 }
 
 // Forgot Password
 @Post('forgot-password')
+@UseGuards(JwtAuthGuard)
 async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) : Promise<{ message: string }> {
     return await this.authService.forgotPassword(forgotPasswordDto.email);
   }
 
 // reset password
+
 @Post('reset-password')
-async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) : Promise<{ message: string }> {
-    return await this.authService.resetPassword(resetPasswordDto.token, resetPasswordDto.newPassword);
+// @UseGuards(JwtAuthGuard)
+async resetPassword(@Body() resetPasswordDto: ResetPasswordDto,@Query('token') token: string) : Promise<{ message: string }> {
+    return await this.authService.resetPassword(token,resetPasswordDto.newPassword,resetPasswordDto.confirmNewPassword);
 }
 
 // verify email

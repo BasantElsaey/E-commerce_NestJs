@@ -1,7 +1,7 @@
 import { Table, Column, Model, DataType, PrimaryKey, HasMany } from 'sequelize-typescript';
 import { Category } from 'src/categories/models/category.model';
 import { Product } from 'src/products/models/product.model';
-import { Roles } from 'src/utility/common/user-roles.enum';
+import { Roles } from 'src/utility/common/enums/user-roles.enum';
 @Table({ tableName: 'users', timestamps: true })
 export class User extends Model<User> {
   
@@ -17,6 +17,7 @@ export class User extends Model<User> {
 
   @Column({ type: DataType.STRING, allowNull: false })
   password: string;
+
 
   @Column({
     type: DataType.ARRAY(DataType.STRING), 

@@ -16,6 +16,9 @@ import { ProductsModule } from './products/products.module';
 import { AuthModule } from './auth/auth.module';
 import { AuthService } from './auth/services/auth.service';
 import { RateLimiterMiddleware } from './middlewares/rate-limiter.middleware';
+import { ReviewsModule } from './reviews/reviews.module';
+import { OrdersModule } from './orders/orders.module';
+import { CartsModule } from './carts/carts.module';
 @Module({
   imports: [ConfigModule.forRoot({envFilePath:'.env',isGlobal:true})
     ,DatabaseModule,UsersModule,
@@ -27,6 +30,9 @@ import { RateLimiterMiddleware } from './middlewares/rate-limiter.middleware';
     CategoriesModule,
     ProductsModule,
     AuthModule,
+    ReviewsModule,
+    OrdersModule,
+    CartsModule,
     
   ],
   // controllers: [AppController,UsersController],

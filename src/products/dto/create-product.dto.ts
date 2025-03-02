@@ -1,8 +1,8 @@
 import { IsNotEmpty, IsNumber, IsPositive, IsString,Min,IsArray } from "class-validator";
 export class CreateProductDto {
 
-    @IsNotEmpty({message : 'Title is required' })
-    @IsString({message : 'Title must be a string' })
+    @IsNotEmpty({message : 'Name is required' })
+    @IsString({message : 'Name must be a string' })
     name: string;
 
     @IsNotEmpty({message : 'Description is required' })

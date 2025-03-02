@@ -12,12 +12,23 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       secretOrKey: process.env.JWT_SECRET_KEY,
     });
   }
-
-  async validate(payload: any) {
-    const user = await this.userModel.findByPk(payload.id);
+  async validate(payload: { id: number; email: string; roles: string[] }) {
+  
+    const user = await this.userModel.findByPk(payload.id, {
+      attributes: ['id', 'email', 'roles'],
+    });
+  
     if (!user) {
       throw new UnauthorizedException('Unauthorized access');
     }
-    return user;
+    
+  
+    console.log('✅ User from DB:', user);
+  
+    return {
+      id: user.id,
+      email: user.email,
+      roles: user.roles || [], 
+    };
   }
-}
+}  

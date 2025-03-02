@@ -17,5 +17,5 @@ export class ChangePasswordDto {
   @IsString()
   @MinLength(6, { message: 'Confirm password must be at least 6 characters long' })
   @MaxLength(20, { message: 'Confirm password must not exceed 20 characters' })
-  confirmPassword: string;
+  confirmNewPassword: string;
 }

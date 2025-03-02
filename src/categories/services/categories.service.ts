@@ -1,11 +1,12 @@
 import { Injectable, UnauthorizedException, 
 BadRequestException, ConflictException, InternalServerErrorException,
 NotFoundException } from '@nestjs/common';
-import { CreateCategoryDto } from './dto/create-category.dto';
-import { UpdateCategoryDto } from './dto/update-category.dto';
+import { CreateCategoryDto } from '../dto/create-category.dto';
+import { UpdateCategoryDto } from '../dto/update-category.dto';
 import { InjectModel } from '@nestjs/sequelize';
 import { Category } from 'src/categories/models/category.model';
 import { User } from 'src/users/models/user.model';
+import { Op } from 'sequelize';
 
 
 
@@ -96,10 +97,25 @@ export class CategoriesService {
   }
 
 
+  // get all categories with pagination and search
+  async findAll( page: number, limit: number, search?: string): Promise<{ categories: Category[]; total: number }> {
+    // calculate offset to determine which records we start to retrieve data
+    // limit determines how many elements to retrieve in each page
+    // page determines which page to start to retrieve
+    const offset = (page - 1) * limit;
 
-    async findAll() : Promise<Category[]> {
+    // where clause determines conditions of search
+    // Op.iLike is used for case-insensitive search 
+    // %search% is used for wildcard search  
+    // --> search for any text that includes input word 
+    const whereClause: any = {};
+    if (search) {
+      whereClause.title = { [Op.iLike]: `%${search}%` }; 
+    }
 
-      return await this.categoryModel.findAll({
+    const { rows: categories, count: total } =
+      await this.categoryModel.findAndCountAll({
+        where: whereClause,
         include: [
           {
             model: User,
@@ -108,9 +124,12 @@ export class CategoriesService {
           },
         ],
         attributes: { exclude: ['password'] },
+        limit,
+        offset,
+      });
 
-      }); // return all categories
-    }
+    return { categories, total };
+  } 
 
 
   async findOne(id: number) : Promise<Category> {
@@ -130,28 +149,63 @@ export class CategoriesService {
     return category;
     
   }
-
-  async update(id: number, fields : Partial<UpdateCategoryDto>) :
-   Promise<{ message: string; category: Category }> {
-    const category = await this.findOne(id);
-    if (!category) {
-      throw new NotFoundException('Category not found');
-    }
+  async update(id: number, fields: Partial<UpdateCategoryDto>):
+  Promise<{ message: string; category: Category }> {
+ 
+   const category = await this.categoryModel.findByPk(id);
+ 
+   if (!category) {
+     throw new NotFoundException('Category not found');
+   }
+  
+   // check if any of the fields are undefined or null
+   if (!fields || Object.keys(fields).length === 0 || Object.values(fields).every(value => value === undefined || value === null)) {
+     throw new InternalServerErrorException('No valid fields provided for update');
+   }
+  
+   try {
+     await category.update(fields);
+     await category.save(); 
+     
+     return { message: 'Category updated successfully', category };
+     
+   } catch (error) {
+     throw new InternalServerErrorException(`Failed to update category: ${error.message}`);
+   }
+ }
+ 
+  async remove(id: number) : Promise<{ message: string }> {
     try {
-      await category.update(fields);
-      return { message: 'Category updated successfully', category };
-      
-    } catch (error) {
-      throw new InternalServerErrorException(`Failed to update category: ${error.message}`);
-    }
-  }
-
-  async remove(id: number) {
     const category = await this.findOne(id);
     if (!category) {
       throw new NotFoundException('Category not found');
     }
     await category.destroy();
-    return { message: 'Category deleted successfully' };
+    await category.save();
+    return { message: 'Category deleted successfully'};
+    
+    } catch (error) {
+      throw new InternalServerErrorException(`Failed to delete category: ${error.message}`);
+    }
+  }
+
+  // get all categories specific to a user
+  async findAllCategoriesToSpecificUser(userId: number): Promise<Category[]> {
+    const categories = await this.categoryModel.findAll({
+      where: { userId },
+      attributes: { exclude: ['password'] },
+      include: [
+        {
+          model: User,
+          as: 'addedBy',
+          attributes: ['id', 'name', 'email'],
+        },
+      ]
+    });
+
+    if (categories.length === 0 || !categories || userId === null) {
+      throw new NotFoundException('No categories found for this user or user not found');
+    }
+    return categories;
   }
 }

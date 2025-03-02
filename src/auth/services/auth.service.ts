@@ -175,13 +175,19 @@ export class AuthService {
   }
 
   // Change Password 
-  async changePassword(userId: number, oldPassword: string, newPassword: string): Promise<{ message: string }> {
+  async changePassword(userId: number, oldPassword: string, newPassword: string, 
+    confirmNewPassword: string)
+  : Promise<{ message: string }> {
     const user = await this.userModel.findByPk(userId);
     if (!user) throw new NotFoundException('User not found');
 
-    const isMatch = await this.passwordService.comparePassword(oldPassword, user.password);
-    if (!isMatch) throw new UnauthorizedException('Incorrect old password');
-
+    const matchPassword = await this.passwordService.comparePassword(oldPassword, user.password);
+    if (!matchPassword) {
+      throw new BadRequestException('Invalid old password');
+    }
+    if (newPassword !== confirmNewPassword) {
+      throw new BadRequestException('Passwords do not match');
+    }
     user.password = await this.passwordService.hashPassword(newPassword);
     await user.save();
 
@@ -191,19 +197,26 @@ export class AuthService {
 // Forgot Password 
 async forgotPassword(email: string): Promise<{ message: string }> {
   const user = await this.emailService.findUserByEmail(email);
+  // send email
   if (!user) throw new NotFoundException('User not found');
 
-  const resetToken = this.jwtService.sign(
-    { id: user.id }, 
-    { expiresIn: process.env.JWT_EXPIRES_IN });
+    // Generate reset token (JWT)
+    const resetToken = this.jwtService.sign(
+      { id: user.id }, 
+      {
+        secret: process.env.JWT_SECRET_KEY,
+        expiresIn: process.env.FORGOT_PASSWORD_EXPIRES_IN
+      }
+    );
 
-  await this.emailService.sendPasswordResetEmail(resetToken);
+    // Send reset email
+    await this.emailService.sendPasswordResetEmail(user.email, resetToken);
 
-  return { message: 'Password reset link sent to email' };
-}
+    return { message: 'Password reset link sent to email' };
+  }
 
 // reset password
-async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+async resetPassword(token: string, newPassword: string, confirmNewPassword: string): Promise<{ message: string }> {
   let payload;
   try {
       payload = this.jwtService.verify(token);
@@ -215,6 +228,8 @@ async resetPassword(token: string, newPassword: string): Promise<{ message: stri
   if (!user) throw new NotFoundException('User not found');
 
   user.password = await this.passwordService.hashPassword(newPassword);
+  user.passwordResetToken = null;
+  user.passwordResetExpires = null;
   await user.save();
 
   return { message: 'Password has been reset successfully' };

@@ -9,6 +9,8 @@ import { EmailService } from './services/email.service';
 import {TwoFactorAuthService} from './services/twoFactorAuth.service'
 import { JwtStrategy } from './strategies/jwt.strategy';
 import {PassportModule} from '@nestjs/passport'
+import { RolesGuard } from './guards/roles.guard';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Module({
   imports: [
@@ -26,6 +28,9 @@ import {PassportModule} from '@nestjs/passport'
     AuthService, PasswordService, 
     JwtStrategy,EmailService,TwoFactorAuthService
   ],
-  exports: [AuthService,PasswordService, EmailService,TwoFactorAuthService], 
+  exports: [
+    AuthService,PasswordService, 
+    EmailService,TwoFactorAuthService,
+    JwtModule,JwtStrategy], 
 })
 export class AuthModule {}
