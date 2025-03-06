@@ -25,8 +25,8 @@ export class CreateProductDto {
     @IsArray({message : 'Images must be an array' })
     images: string[];
 
-    @IsNotEmpty({message : 'Category is required' })
-    @IsNumber({}, {message : 'Category Id must be a number' })
-    categoryId : number
+    // @IsNotEmpty({message : 'Category is required' })
+    // @IsNumber({}, {message : 'Category Id must be a number' })
+    // categoryId : number
 
 }

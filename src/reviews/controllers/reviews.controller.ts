@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { ReviewsService } from '../services/reviews.service';
 import { CreateReviewDto } from '../dto/create-review.dto';
 import { UpdateReviewDto } from '../dto/update-review.dto';
@@ -11,14 +11,18 @@ import { Review } from '../models/review.model';
 import { AuthGuard } from '@nestjs/passport';
 
 @Controller('reviews')
-@UseGuards(AuthGuard('jwt'), RolesGuard) 
 export class ReviewsController {
   constructor(private readonly reviewsService: ReviewsService) {}
 
-  @Post()
-  async create(@Body() createReviewDto: CreateReviewDto, @CurrentUser() currentUser : User)
+
+  @Post('/create-review/:productId')
+  @UseGuards(AuthGuard('jwt'), RolesGuard) 
+  async create(
+    @Body() createReviewDto: CreateReviewDto,
+    @Param('productId', ParseIntPipe) productId: number,
+   @CurrentUser() currentUser : User)
   : Promise<{ message: string; review: Review }> {
-    return await this.reviewsService.create(createReviewDto,currentUser);
+    return await this.reviewsService.create(createReviewDto,currentUser, productId);
   }
 
   @Get('product/:productId')
@@ -27,14 +31,15 @@ export class ReviewsController {
     return await this.reviewsService.findAllReviewsToProduct(productId);
   }
 
-  @Get('user/:userId')
-  async findUserReviews(@Param('userId') userId: number, @CurrentUser() currentUser: User) {
-    return await this.reviewsService.findUserReviews(userId, currentUser);
+  @Get('/my-reviews')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  async getUserReviews(@CurrentUser() currentUser : User) : Promise<Review[]> {
+    return await this.reviewsService.getUserReviews(currentUser.id);
   }
 
   @Get('all-reviews')
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @AuthorizeRoles(Roles.ADMIN)
+  // @UseGuards(AuthGuard('jwt'), RolesGuard)
+  // @AuthorizeRoles(Roles.ADMIN)
   async findAllReviews(): Promise<Review[]> {
     return await this.reviewsService.findAllReviews();
   }
@@ -47,18 +52,15 @@ export class ReviewsController {
     return await this.reviewsService.getUserReviewsSummary(userId);
   }
 
-  @Get('/search')
-  async searchReviews(@Query('query') query: string): Promise<Review[]> {
-    return await this.reviewsService.searchReviews(query);
-  }
-
-  @Patch(':id')
+  @Patch('/update-review/:id')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   async update(@Param('id') id: number, @Body() updateReviewDto: UpdateReviewDto,
    @CurrentUser() currentUser: User) {
     return await this.reviewsService.update(id, updateReviewDto, currentUser);
   }
 
-  @Delete(':id')
+  @Delete('/delete-review/:id')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   async remove(@Param('id') id: number, @CurrentUser() currentUser: User) {
     return await this.reviewsService.remove(id, currentUser);
   }

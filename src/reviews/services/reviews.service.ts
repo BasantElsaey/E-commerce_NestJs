@@ -7,18 +7,23 @@ import { User } from 'src/users/models/user.model';
 import { Roles } from 'src/utility/common/enums/user-roles.enum';
 import { UpdateReviewDto } from '../dto/update-review.dto';
 import { Op } from 'sequelize';
+import { CurrentUser } from 'src/utility/common/decorators/current-user.decorator';
 
 @Injectable()
 export class ReviewsService {
   constructor(@InjectModel(Review) private readonly reviewModel: typeof Review) {}
 
-  async create(createReviewDto: CreateReviewDto, currentUser: User): Promise<{ message: string; review: Review }> {
+  async create(
+    createReviewDto: CreateReviewDto,
+    @CurrentUser()currentUser: User,
+    productId: number
+  ): Promise<{ message: string; review: Review }> {
     try {
-      const product = await Product.findByPk(createReviewDto.productId);
+      const product = await Product.findByPk(productId);
       if (!product) throw new NotFoundException('Product not found');
 
       const existingReview = await this.reviewModel.findOne({
-        where: { productId: createReviewDto.productId, userId: currentUser.id }
+        where: { productId, userId: currentUser.id }
       });
 
       if (existingReview) {
@@ -32,8 +37,8 @@ export class ReviewsService {
       const review = await this.reviewModel.create({
         rating: createReviewDto.rating,
         comment: createReviewDto.comment || '',
-        productId: createReviewDto.productId,
-        userId: currentUser.id,
+        productId,
+        userId: currentUser.id
       } as Review);
 
       return { message: 'Review added successfully', review };
@@ -45,7 +50,7 @@ export class ReviewsService {
   async findAllReviewsToProduct(productId: number): Promise<{ reviews: Review[], averageRating: number }> {
     const reviews = await this.reviewModel.findAll({
       where: { productId },
-      include: [{ model: User, attributes: ['id', 'username', 'email'] }],
+      include: [{ model: User, attributes: ['id', 'name', 'email'] }],
     });
 
     if (reviews.length === 0) {
@@ -56,24 +61,39 @@ export class ReviewsService {
     return { reviews, averageRating: parseFloat(averageRating.toFixed(2)) };
   }
 
-  async findUserReviews(userId: number, currentUser: User): Promise<Review[]> {
-    if (currentUser.id !== userId && !currentUser.roles.includes(Roles.ADMIN)) {
-      throw new ForbiddenException('You are not allowed to view these reviews');
+  async getUserReviews(userId: number): Promise<Review[]> {
+    try {
+      const reviews = await this.reviewModel.findAll({
+        where: { userId }, 
+        include: [
+          {
+            model: Product,
+            attributes: ['id', 'name', 'price'],
+          },
+        ],
+        order: [['createdAt', 'DESC']], 
+      });
+  
+      return reviews;
+    } catch (error) {
+      throw new InternalServerErrorException(`Failed to retrieve user reviews: ${error.message}`);
     }
-
-    return await this.reviewModel.findAll({
-      where: { userId },
-      include: [{ model: Product, attributes: ['id', 'name'] }],
-    });
   }
+  
 
   async findAllReviews(): Promise<Review[]> {
-    return await this.reviewModel.findAll({
+     try {
+      const reviews = await this.reviewModel.findAll({
       include: [
-        { model: Product, attributes: ['id', 'name'] },
-        { model: User, attributes: ['id', 'username', 'email'] },
+        { model: Product, attributes: ['id', 'name', 'price'] },
+        { model: User, attributes: ['id', 'name', 'email'] },
       ],
-    });
+     })
+     if (reviews.length === 0) throw new NotFoundException('No reviews found');
+     return reviews
+    } catch (error) {
+      throw new InternalServerErrorException(`Failed to retrieve reviews: ${error.message}`);
+    }
   }
 
   async getUserReviewsSummary(userId: number): Promise<{ reviews: Review[], averageRating: number }> {
@@ -103,7 +123,7 @@ export class ReviewsService {
   }
 
 
-  async remove(id: number, currentUser: User): Promise<{ message: string }> {
+  async remove(id: number, currentUser: User): Promise<{ message: string , data}> {
     const review = await this.reviewModel.findByPk(id);
     if (!review) throw new NotFoundException('Review not found');
 
@@ -112,14 +132,7 @@ export class ReviewsService {
     }
 
     await review.destroy();
-    return { message: 'Review deleted successfully' };
+    return { message: 'Review deleted successfully',data : {} };
   }
 
-  // search reviews
-  async searchReviews(query: string): Promise<Review[]> {
-    return await this.reviewModel.findAll({
-      where: { comment: { [Op.iLike]: `%${query}%` } },
-      include: [{ model: User, attributes: ['id', 'username'] }],
-    });
-  }
 }

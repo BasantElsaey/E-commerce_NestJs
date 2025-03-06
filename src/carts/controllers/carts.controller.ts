@@ -8,37 +8,49 @@ import { AuthGuard } from '@nestjs/passport';
 import { Cart } from '../models/cart.model';
 
 @Controller('carts')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt')) 
 export class CartController {
   constructor(private readonly cartService: CartService) {}
 
-  @Post()
-  async addItemToCart(@Body() createCartDto: CreateCartDto, @CurrentUser() 
-  currenUser: User) : Promise<{ message: string; cartItem: Cart }> {
-    return this.cartService.addItemToCart(createCartDto, currenUser);
+  @Post('add-cart-item')
+  async addItemToCart(
+    @Body() createCartDto: CreateCartDto, 
+    @CurrentUser() currentUser: User
+  ): Promise<{ message: string; cartItem: Cart }> {
+    return await this.cartService.addItemToCart(createCartDto, currentUser);
   }
 
   @Get()
-  async getCartItems(@CurrentUser() currentUser: User)
-   : Promise<{ cartItems: Cart[]; totalPrice: number }> {
-    return this.cartService.getCartItems(currentUser);
+  async getCartItems(@CurrentUser() currentUser: User): 
+  Promise<{ cartItems: Cart[]; totalPrice: number }> {
+    return await this.cartService.getCartItems(currentUser);
   }
 
-  @Patch(':id')
-  async updateCartItem(@Param('id') id: number, @Body() 
-  updateCartDto: UpdateCartDto, @CurrentUser() currentUser: User)
-  : Promise<{ message: string; cartItem: Cart }> {
-    return this.cartService.updateCartItem(+id, updateCartDto, currentUser);
+  @Patch('/update-cart-item/:id')
+  async updateCartItem(
+    @Param('id') id: number, 
+    @Body() updateCartDto: UpdateCartDto, 
+    @CurrentUser() currentUser: User
+  ): Promise<{ message: string; cartItem: Cart }> {
+    return await this.cartService.updateCartItem(+id, updateCartDto, currentUser);
   }
 
-  @Delete(':id')
-  async removeCartItem(@Param('id') id: number, @CurrentUser() currentUser: User)
-  : Promise<{ message: string }> {
-    return this.cartService.removeCartItem(+id, currentUser);
+  @Delete('/delete-cart-item/:id')
+  async removeCartItem(
+    @Param('id') id: number, 
+    @CurrentUser() currentUser: User
+  ): Promise<{ message: string }> {
+    return await this.cartService.removeCartItem(id, currentUser);
   }
 
   @Delete('clear-cart')
   async clearCart(@CurrentUser() currentUser: User): Promise<{ message: string }> {
-    return this.cartService.clearCart(currentUser);
+    return await this.cartService.clearCart(currentUser);
+  }
+
+
+  @Get('validate')
+  async validateCart(@CurrentUser() currentUser: User): Promise<{ message: string }> {
+    return await this.cartService.validateCart(currentUser);
   }
 }

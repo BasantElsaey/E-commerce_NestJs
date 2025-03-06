@@ -19,8 +19,11 @@ import { RateLimiterMiddleware } from './middlewares/rate-limiter.middleware';
 import { ReviewsModule } from './reviews/reviews.module';
 import { OrdersModule } from './orders/orders.module';
 import { CartsModule } from './carts/carts.module';
+import { PaymentModule } from './payment/payment.module';
 @Module({
-  imports: [ConfigModule.forRoot({envFilePath:'.env',isGlobal:true})
+  imports: [
+    ConfigModule.forRoot({envFilePath:'.env',isGlobal:true},
+  )
     ,DatabaseModule,UsersModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET_KEY, 
@@ -33,6 +36,7 @@ import { CartsModule } from './carts/carts.module';
     ReviewsModule,
     OrdersModule,
     CartsModule,
+    PaymentModule,
     
   ],
   // controllers: [AppController,UsersController],

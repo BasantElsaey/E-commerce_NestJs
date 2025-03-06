@@ -13,30 +13,34 @@ import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Order } from '../models/order.model';
 import { OrderItem } from '../models/order-item.model';
 
-// @ApiTags('Orders')
-// @ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'),RolesGuard)
+
 @Controller('orders')
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
-  @Post()
-  async create(@Body() createOrderDto: CreateOrderDto, @CurrentUser() currentUser: User)
-  : Promise<{ message: string; order: Order }> {
-    return this.ordersService.create(createOrderDto, currentUser);
-  }
+  // @Post('/create-order')
+  // async create(@Body() createOrderDto: CreateOrderDto, @CurrentUser() currentUser: User)
+  // : Promise<{ message: string; order: Order }> {
+  //   return this.ordersService.create(createOrderDto, currentUser);
+  // }
 
-  @Get()
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @AuthorizeRoles(Roles.ADMIN)
-  async findAll() : Promise<Order[]> {
-    return await this.ordersService.findAll();
+  @Post('/create-order-from-cart')
+  async createOrderFromCart(@CurrentUser() currentUser: User,userId: number) 
+  : Promise<{ message: string; order: Order }> {
+    return this.ordersService.createOrderFromCart(userId,currentUser);
   }
 
  // get all of current user orders
-  @Get('myorders')
+  @Get('my-orders')
   async findMyOrders(@CurrentUser() currentUser: User) : Promise<Order[]> {
-    return await this.ordersService.findUserOrders(currentUser.id);
+    return await this.ordersService.findUserOrders(currentUser);
+  }
+
+  @Get()
+  @AuthorizeRoles(Roles.ADMIN)
+  async findAll(@CurrentUser() currentUser: User) : Promise<Order[]> {
+    return await this.ordersService.findAll(currentUser);
   }
 
   // get order by id
@@ -47,16 +51,14 @@ export class OrdersController {
   }
 
   // get order items
-  @Get(':id/items')
+  @Get('/items/:id')
   async findOrderItems(@Param('id') orderId: number, @CurrentUser() currentUser: User)
   : Promise<OrderItem[]> {
     return this.ordersService.findOrderItems(orderId, currentUser);
   }
 
   // update order data
-  @Patch(':id')
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @AuthorizeRoles(Roles.ADMIN)
+  @Patch('/update-order/:id')
   async update(@Param('id') orderId: number, @Body() updateOrderDto: UpdateOrderDto,
    @CurrentUser() currentUser: User) : Promise<{ message: string; order: Order }> {
     return this.ordersService.update(orderId, updateOrderDto, currentUser);
@@ -64,11 +66,10 @@ export class OrdersController {
 
   // update order status 
   @Patch(':id/status')
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @AuthorizeRoles(Roles.ADMIN)
   async updateStatus(@Param('id') orderId: number, @Body('status') status: string,
-  updateOrderDto: UpdateOrderDto) : Promise<{ message: string; order: Order }> {
-    return this.ordersService.updateStatus(orderId, status, updateOrderDto);
+  updateOrderDto: UpdateOrderDto) : Promise<{ status : string}> {
+    return this.ordersService.updateOrderStatus(orderId, status);
   }
 
   // update order item quantity
@@ -83,14 +84,15 @@ export class OrdersController {
   }
 
   // is available only for `pending` orders
-  @Patch(':id/cancel')
+  @Patch('/cancel-order/:id')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   async cancel(@Param('id') orderId: number, @CurrentUser() currentUser : User)
   : Promise<{ message: string; order: Order }> {
     return this.ordersService.cancel(orderId, currentUser);
   }
 
   // is available only for `cancelled` orders
-  @Delete(':id')
+  @Delete('/delete-order/:id')
   async delete(@Param('id') orderId: number, @CurrentUser() currentUser : User) 
   : Promise<{ message: string }> {
     return this.ordersService.delete(orderId, currentUser);

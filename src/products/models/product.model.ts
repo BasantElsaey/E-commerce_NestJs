@@ -5,6 +5,7 @@ import {
 import { Category } from "src/categories/models/category.model";
 import { User } from "src/users/models/user.model";
 
+
 @Table({tableName : 'products', timestamps: true, paranoid: true})
 export class Product extends Model<Product> {
 
@@ -30,6 +31,9 @@ export class Product extends Model<Product> {
         defaultValue: []
     })
     images: string[]
+
+    @Column({type: DataType.BOOLEAN, allowNull: false, defaultValue: true})
+    isAvailable: boolean
 
     @Column({
         type: DataType.DATE, 

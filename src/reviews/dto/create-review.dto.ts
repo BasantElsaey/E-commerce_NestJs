@@ -1,4 +1,4 @@
-import { IsInt, IsNotEmpty, IsOptional, IsString, Min, Max } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, IsString, Min, Max, IsNumber } from 'class-validator';
 
 export class CreateReviewDto  {
   @IsInt({message : 'Rating must be an integer'} )
@@ -10,7 +10,9 @@ export class CreateReviewDto  {
   @IsOptional({message : 'Comment is optional'})
   comment?: string ;
 
-  @IsInt({message : 'User Id must be an integer'})
-  @IsNotEmpty({message : 'Product Id is required'})
-  productId: number;
+  // @IsInt({message : 'User Id must be an integer'})
+
+  // @IsNotEmpty({message : 'Product Id is required'})
+  // @IsNumber({},{message : 'Product Id must be a valid number'})
+  // productId: number;
 }
