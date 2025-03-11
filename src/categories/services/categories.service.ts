@@ -8,8 +8,6 @@ import { Category } from 'src/categories/models/category.model';
 import { User } from 'src/users/models/user.model';
 import { Op } from 'sequelize';
 
-
-
 @Injectable()
 export class CategoriesService {
   constructor(@InjectModel(Category) 
@@ -58,7 +56,7 @@ export class CategoriesService {
   Promise<Category> {
     // Use transactions to ensure data consistency
     const transaction = await this.categoryModel.sequelize?.transaction();
-    try {
+    
       if (!transaction) {
         throw new InternalServerErrorException('Transaction could not be started');
       }
@@ -87,13 +85,6 @@ export class CategoriesService {
 
       await transaction.commit();
       return category;
-
-    } catch (error) {
-      if (transaction) {
-        await transaction.rollback();
-      }
-      throw new InternalServerErrorException(`Failed to create category: ${error.message}`);
-    }
   }
 
 
@@ -162,20 +153,14 @@ export class CategoriesService {
    if (!fields || Object.keys(fields).length === 0 || Object.values(fields).every(value => value === undefined || value === null)) {
      throw new InternalServerErrorException('No valid fields provided for update');
    }
-  
-   try {
      await category.update(fields);
      await category.save(); 
      
      return { message: 'Category updated successfully', category };
-     
-   } catch (error) {
-     throw new InternalServerErrorException(`Failed to update category: ${error.message}`);
-   }
  }
  
   async remove(id: number) : Promise<{ message: string }> {
-    try {
+ 
     const category = await this.findOne(id);
     if (!category) {
       throw new NotFoundException('Category not found');
@@ -184,9 +169,7 @@ export class CategoriesService {
     await category.save();
     return { message: 'Category deleted successfully'};
     
-    } catch (error) {
-      throw new InternalServerErrorException(`Failed to delete category: ${error.message}`);
-    }
+   
   }
 
   // get all categories specific to a user

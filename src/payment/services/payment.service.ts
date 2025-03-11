@@ -40,7 +40,7 @@ export class PaymentService {
     @Body() createPaymentDto : CreatePaymentDto 
   ): 
   Promise<{ clientSecret: string }> {
-    try {
+    
       const { order } = await this.ordersService.createOrderFromCart(currentUser.id, currentUser);
       if (!order) {
         throw new BadRequestException('Failed to create order from cart');
@@ -96,14 +96,11 @@ export class PaymentService {
         metadata: paymentIntent.metadata,
       });
 
-      return { clientSecret: paymentIntent.client_secret };
-    } catch (error) {
-      throw new InternalServerErrorException(`Error creating payment intent: ${error.message}`);
-    }
+      return { clientSecret: paymentIntent.client_secret }
   }
 
   async confirmPayment(paymentIntentId: string): Promise<{ message: string }> {
-    try {
+ 
       const payment = await this.paymentModel.findOne({ where: { paymentIntentId } });
       if (!payment) throw new NotFoundException('Payment record not found');
 
@@ -123,13 +120,10 @@ export class PaymentService {
       await payment.save();
 
       return { message: 'Payment confirmed successfully' };
-    } catch (error) {
-      throw new InternalServerErrorException(`Error confirming payment: ${error.message}`);
-    }
   }
 
   async refundPayment(paymentIntentId: string): Promise<Stripe.Refund> {
-    try {
+  
       const payment = await this.paymentModel.findOne({ where: { paymentIntentId } });
       if (!payment) throw new NotFoundException('Payment record not found');
 
@@ -153,13 +147,10 @@ export class PaymentService {
       }
 
       return refund;
-    } catch (error) {
-      throw new InternalServerErrorException(`Error processing refund: ${error.message}`);
-    }
   }
 
   async cancelPayment(paymentIntentId: string): Promise<{ message: string; canceledPayment?: Stripe.PaymentIntent }> {
-    try {
+   
       const payment = await this.paymentModel.findOne({ where: { paymentIntentId } });
       if (!payment) throw new NotFoundException('Payment record not found');
 
@@ -172,13 +163,10 @@ export class PaymentService {
       await payment.update({ status: 'canceled' });
 
       return { message: 'Payment canceled successfully', canceledPayment };
-    } catch (error) {
-      throw new InternalServerErrorException(`Error canceling payment: ${error.message}`);
-    }
   }
 
-  async handleWebhook(event: Stripe.Event) {
-    try {
+  async handleWebhook(event: Stripe.Event) : Promise<void> {
+
       if (event.type === 'payment_intent.succeeded') {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
         await this.ordersService.updateOrderStatus(parseInt(paymentIntent.metadata.orderId), 'paid');
@@ -190,8 +178,5 @@ export class PaymentService {
         console.error(`Payment failed for Order ID ${paymentIntent.metadata.orderId}`);
         await this.paymentModel.update({ status: 'failed' }, { where: { paymentIntentId: paymentIntent.id } });
       }
-    } catch (error) {
-      throw new InternalServerErrorException(`Error handling webhook: ${error.message}`);
-    }
   }
 }

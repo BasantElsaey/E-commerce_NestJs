@@ -12,7 +12,6 @@ import { OrdersService } from 'src/orders/services/orders.service';
 import { CartService } from 'src/carts/services/carts.service';
 import { ReviewsService } from 'src/reviews/services/reviews.service';
 import { ProductsService } from 'src/products/services/products.service';
-import Stripe from 'stripe';
 import { CartItem } from 'src/carts/models/cart-item.model';
 import { Payment } from './models/payment.model';
 
@@ -26,7 +25,7 @@ import { Payment } from './models/payment.model';
     OrdersService,
     ProductsService,
     CartService,
-    ReviewsService
+    ReviewsService,
   ],
   controllers: [PaymentController],
   exports : [PaymentService]

@@ -27,7 +27,7 @@ export class ProductsService {
     images: Express.Multer.File[],
     @CurrentUser() currentUser: User
   ): Promise<{ message: string; product: Product }> {
-    try {
+ 
       const existingProduct = await this.productModel.findOne({
         where: { name: createProductDto.name, userId: currentUser.id },
       });
@@ -55,9 +55,6 @@ export class ProductsService {
       } as Product);
   
       return { message: 'Product created successfully', product };
-    } catch (error) {
-      throw new InternalServerErrorException(`Failed to create product: ${error.message}`);
-    }
   }
   
 
@@ -65,7 +62,7 @@ export class ProductsService {
     page: number , limit: number , search?: string, 
     sortBy: string = 'name', sortOrder: 'ASC' | 'DESC' = 'DESC'
   ): Promise<{ products: Product[]; total: number }> {
-    try {
+   
       const offset = (page - 1) * limit;
       const allowedSortFields = ['name', 'price', 'stock', 'createdAt'];
       const validSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'name';
@@ -82,13 +79,11 @@ export class ProductsService {
       });
 
       return { products, total };
-    } catch (error) {
-      throw new InternalServerErrorException(`Failed to retrieve products: ${error.message}`);
-    }
+   
   }
 
   async findOne(id: number): Promise<Product> {
-    try {
+
       const product = await this.productModel.findByPk(id, {
         include: [{ 
           model: Category, attributes: ['id', 'title'], }, 
@@ -98,14 +93,12 @@ export class ProductsService {
 
       if (!product) throw new NotFoundException('Product not found');
       return product;
-    } catch (error) {
-      throw new InternalServerErrorException(`Failed to find product: ${error.message}`);
-    }
+    
   }
 
   async update(id: number, updateProductDto: UpdateProductDto,@CurrentUser() currentUser: User): 
     Promise<{ message: string; product: Product }> {
-    try {
+ 
       const product = await this.findOne(id);
       
       if (product.userId !== currentUser.id && !currentUser.roles.includes(Roles.ADMIN)) {
@@ -122,14 +115,10 @@ export class ProductsService {
   
       const updatedProduct = await this.findOne(id);
       return { message: 'Product updated successfully', product: updatedProduct };
-      
-    } catch (error) {
-      throw new InternalServerErrorException(`Failed to update product: ${error.message}`);
-    }
   }
 
   async remove(id: number, currentUser: User): Promise<{ message: string; product: Product }> {
-    try {
+   
       const product = await this.findOne(id);
 
       if (product.userId !== currentUser.id && !currentUser.roles.includes(Roles.ADMIN)) {
@@ -138,15 +127,12 @@ export class ProductsService {
 
       await product.destroy();
       return { message: 'Product deleted successfully', product };
-    } catch (error) {
-      throw new InternalServerErrorException(`Failed to delete product: ${error.message}`);
-    }
   }
 
   // Restore a deleted product
   async restore(id: number, currentUser: User): 
   Promise<{ message: string; product: Product }> {
-    try {
+
       const product = await this.productModel.findOne({
         where: { id },
         paranoid: false, // retrieve the deleted product
@@ -162,9 +148,6 @@ export class ProductsService {
 
       await product.restore();
       return { message: 'Product restored successfully', product };
-    } catch (error) {
-      throw new InternalServerErrorException(`Failed to restore product: ${error.message}`);
-    }
   }
 
   // // find all deleted products
@@ -186,7 +169,7 @@ export class ProductsService {
   // // change from available to not available and vice versa
   async toggleStatus(id: number, currentUser: User):
    Promise<{ message: string; product: Product }> {
-    try {
+  
       const product = await this.findOne(id);
 
       if (!product) throw new NotFoundException('Product not found');
@@ -199,9 +182,6 @@ export class ProductsService {
       await product.save();
 
       return { message: 'Product status toggled successfully', product };
-    } catch (error) {
-      throw new InternalServerErrorException(`Failed to toggle product status: ${error.message}`);
-    }
   }
 }
 

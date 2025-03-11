@@ -20,6 +20,11 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { OrdersModule } from './orders/orders.module';
 import { CartsModule } from './carts/carts.module';
 import { PaymentModule } from './payment/payment.module';
+import { LoggerMiddleware } from './middlewares/logger.middleware';
+import { LoggerModule } from './utility/logger/logger.module';
+import helmet from 'helmet';
+
+
 @Module({
   imports: [
     ConfigModule.forRoot({envFilePath:'.env',isGlobal:true},
@@ -37,6 +42,7 @@ import { PaymentModule } from './payment/payment.module';
     OrdersModule,
     CartsModule,
     PaymentModule,
+    LoggerModule,
     
   ],
   // controllers: [AppController,UsersController],
@@ -45,6 +51,11 @@ import { PaymentModule } from './payment/payment.module';
 export class AppModule {
   
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(RateLimiterMiddleware).forRoutes('*'); 
+    consumer.apply(
+      RateLimiterMiddleware,
+      LoggerMiddleware,
+      helmet()
+
+    ).forRoutes('*'); 
   }
 }

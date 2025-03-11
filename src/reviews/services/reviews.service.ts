@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, InternalServerErrorException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, InternalServerErrorException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { Review } from '../models/review.model';
 import { CreateReviewDto } from '../dto/create-review.dto';
@@ -6,21 +6,24 @@ import { Product } from 'src/products/models/product.model';
 import { User } from 'src/users/models/user.model';
 import { Roles } from 'src/utility/common/enums/user-roles.enum';
 import { UpdateReviewDto } from '../dto/update-review.dto';
-import { Op } from 'sequelize';
 import { CurrentUser } from 'src/utility/common/decorators/current-user.decorator';
 
 @Injectable()
 export class ReviewsService {
-  constructor(@InjectModel(Review) private readonly reviewModel: typeof Review) {}
+  constructor(
+    @InjectModel(Review) private readonly reviewModel: typeof Review,
+  ) {}
 
   async create(
     createReviewDto: CreateReviewDto,
     @CurrentUser()currentUser: User,
     productId: number
   ): Promise<{ message: string; review: Review }> {
-    try {
+   
       const product = await Product.findByPk(productId);
-      if (!product) throw new NotFoundException('Product not found');
+      if (!product) {
+        throw new NotFoundException('Product not found');
+      }
 
       const existingReview = await this.reviewModel.findOne({
         where: { productId, userId: currentUser.id }
@@ -31,7 +34,7 @@ export class ReviewsService {
       }
 
       if (createReviewDto.rating < 1 || createReviewDto.rating > 5) {
-        throw new ConflictException('Rating must be between 1 and 5');
+        throw new BadRequestException('Rating must be between 1 and 5');
       }
 
       const review = await this.reviewModel.create({
@@ -40,11 +43,8 @@ export class ReviewsService {
         productId,
         userId: currentUser.id
       } as Review);
-
-      return { message: 'Review added successfully', review };
-    } catch (error) {
-      throw new InternalServerErrorException(`Failed to add review: ${error.message}`);
-    }
+     
+      return { message: 'Review created successfully', review };
   }
 
   async findAllReviewsToProduct(productId: number): Promise<{ reviews: Review[], averageRating: number }> {
@@ -62,7 +62,7 @@ export class ReviewsService {
   }
 
   async getUserReviews(userId: number): Promise<Review[]> {
-    try {
+
       const reviews = await this.reviewModel.findAll({
         where: { userId }, 
         include: [
@@ -75,14 +75,10 @@ export class ReviewsService {
       });
   
       return reviews;
-    } catch (error) {
-      throw new InternalServerErrorException(`Failed to retrieve user reviews: ${error.message}`);
-    }
   }
   
 
   async findAllReviews(): Promise<Review[]> {
-     try {
       const reviews = await this.reviewModel.findAll({
       include: [
         { model: Product, attributes: ['id', 'name', 'price'] },
@@ -90,10 +86,7 @@ export class ReviewsService {
       ],
      })
      if (reviews.length === 0) throw new NotFoundException('No reviews found');
-     return reviews
-    } catch (error) {
-      throw new InternalServerErrorException(`Failed to retrieve reviews: ${error.message}`);
-    }
+     return reviews;
   }
 
   async getUserReviewsSummary(userId: number): Promise<{ reviews: Review[], averageRating: number }> {
@@ -123,7 +116,7 @@ export class ReviewsService {
   }
 
 
-  async remove(id: number, currentUser: User): Promise<{ message: string , data}> {
+  async remove(id: number, currentUser: User): Promise<{ message: string , data : {}}> {
     const review = await this.reviewModel.findByPk(id);
     if (!review) throw new NotFoundException('Review not found');
 

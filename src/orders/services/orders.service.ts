@@ -14,6 +14,8 @@ import { UpdateOrderItemDto } from '../dto/update-order-item.dto';
 import { CurrentUser } from 'src/utility/common/decorators/current-user.decorator';
 import { Cart } from 'src/carts/models/cart.model';
 
+import { Sequelize } from 'sequelize-typescript'; 
+
 
 @Injectable()
 export class OrdersService {
@@ -23,6 +25,7 @@ export class OrdersService {
     @InjectModel(OrderItem) private readonly orderItemModel: typeof OrderItem,
     @InjectModel(Cart) private readonly cartModel: typeof Cart,
     @InjectModel(Product) private readonly productModel: typeof Product,
+    private readonly sequelize: Sequelize
     ) {}
 
   // async create(createOrderDto: CreateOrderDto, currentUser: User)
@@ -80,48 +83,71 @@ export class OrdersService {
   // }
 // }
 
-async createOrderFromCart(userId: number,@CurrentUser() currentUser: User): 
-Promise <{ message: string; order: Order }> {
-  try {
+async createOrderFromCart(
+  userId: number,
+  @CurrentUser() currentUser: User
+): Promise<{ message: string; order: Order }> {
+  const transaction = await this.sequelize.transaction(); // Start Transaction
+
     const cartItems = await this.cartModel.findAll({
       where: { userId },
       include: [{ model: Product }],
+      lock: transaction.LOCK.UPDATE, // Lock to prevent race conditions
+      transaction
     });
 
     if (cartItems.length === 0) {
       throw new NotFoundException('Your cart is empty');
     }
 
-    const totalPrice = cartItems.reduce((sum, item) => sum + item.quantity * item.product.price, 0);
-
-    const order = await this.orderModel.create({
-      userId,
-      totalPrice,
-      status: 'pending', 
-    } as Order);
-
     for (const cartItem of cartItems) {
-      await this.orderItemModel.create({
-        orderId: order.id,
-        productId: cartItem.productId,
-        quantity: cartItem.quantity,
-        price: cartItem.product.price,
-      } as OrderItem);
-
-      cartItem.product.stock -= cartItem.quantity;
-      await cartItem.product.save();
+      if (cartItem.product.stock < cartItem.quantity) {
+        throw new BadRequestException(
+          `Product ${cartItem.product.name} is out of stock`
+        );
+      }
     }
 
-    await this.cartModel.destroy({ where: { userId } });
+    const totalPrice = cartItems.reduce(
+      (sum, item) => sum + item.quantity * item.product.price,
+      0
+    );
+
+    const order = await this.orderModel.create(
+      {
+        userId,
+        totalPrice,
+        status: 'pending',
+      } as Order,
+      { transaction }
+    );
+
+    for (const cartItem of cartItems) {
+      await this.orderItemModel.create(
+        {
+          orderId: order.id,
+          productId: cartItem.productId,
+          quantity: cartItem.quantity,
+          price: cartItem.product.price,
+        } as OrderItem,
+        { transaction }
+      );
+
+      await this.productModel.update(
+        { stock: cartItem.product.stock - cartItem.quantity },
+        { where: { id: cartItem.product.id }, transaction }
+      );
+    }
+
+    await this.cartModel.destroy({ where: { userId }, transaction });
+
+    await transaction.commit(); // Commit Transaction
 
     return { message: 'Order placed successfully', order };
-  } catch (error) {
-    throw new InternalServerErrorException(`Error creating order: ${error.message}`);
-  }
-
 }
+
   async findUserOrders(@CurrentUser() currentUser: User): Promise<Order[]> {
-    try {
+   
       const orders = await this.orderModel.findAll({ where: { userId: currentUser.id }, 
         include: [OrderItem]
        });
@@ -129,13 +155,11 @@ Promise <{ message: string; order: Order }> {
         throw new NotFoundException('No orders found for this user');
       }
       return orders;
-    }catch (error) {
-      throw new InternalServerErrorException(`Failed to find user orders: ${error.message}`);
-    }
+   
   }
 
   async findAll(@CurrentUser() currentUser: User): Promise<Order[]> {
-    try {
+ 
       const orders = await this.orderModel.findAll({ include: [OrderItem] });
       if(!currentUser.roles.includes(Roles.ADMIN) )
         throw new ForbiddenException('You are not allowed to view all orders');
@@ -143,37 +167,26 @@ Promise <{ message: string; order: Order }> {
         throw new NotFoundException('No orders found');
       }
       return orders;
-    }catch (error) {
-      throw new InternalServerErrorException(`Failed to find all orders: ${error.message}`);
-    }
   }
 
   async findOne(orderId: number, currentUser: User): Promise<Order> {
-    try {
 
     const order = await this.orderModel.findByPk(orderId, { include: [OrderItem] });
     if (!order) throw new NotFoundException('Order not found');
     return order;
-
-  }catch (error) {
-    throw new InternalServerErrorException(`Failed to find order: ${error.message}`);
-  }
   }
 
   async findOrderItems(orderId: number, @CurrentUser() currentUser: User): Promise<OrderItem[]> {
-    try {
+
       const order = await this.findOne(orderId, currentUser);
       if (!order) throw new NotFoundException('Order not found');
       return order.items;
-    } catch (error) {
-      throw new InternalServerErrorException(`Failed to find order items: ${error.message}`);
-    }
   }
 
   async update(orderId: number, updateOrderDto: UpdateOrderDto, currentUser: User)
 
   : Promise<{ message: string; order: Order }> {
-    try {
+  
     const order = await this.findOne(orderId, currentUser);
 
     if (order.status !== 'pending') {
@@ -189,14 +202,11 @@ Promise <{ message: string; order: Order }> {
     await order.update(updateOrderDto);
     await order.save();
     return { message: 'Order updated successfully', order };
-  } catch (error) {
-    throw new InternalServerErrorException(`Failed to update order: ${error.message}`);
-  }
+
   }
 
   async updateOrderItem(orderId: number, itemId: number, updateOrderItemDto: UpdateOrderItemDto, currentUser: User)
   : Promise<{ message: string; orderItem: OrderItem; newTotalPrice: number }> {
-    try {
 
     const order = await this.findOne(orderId, currentUser);
     const orderItem = await OrderItem.findOne({ where: { id: itemId, orderId } });
@@ -227,13 +237,10 @@ Promise <{ message: string; order: Order }> {
     await order.save();
 
     return { message: 'Order item updated successfully', orderItem, newTotalPrice };
-  } catch (error) {
-    throw new InternalServerErrorException(`Failed to update order item: ${error.message}`);
-  }
   }
 
   async cancel(orderId: number, currentUser: User): Promise<{ message: string; order: Order }> {
-    try {
+  
     const order = await this.findOne(orderId, currentUser);
 
     if (order.status !== 'pending') {
@@ -242,13 +249,10 @@ Promise <{ message: string; order: Order }> {
 
     await order.update({ status: 'cancelled' });
     return { message: 'Order cancelled successfully', order };
-  } catch (error) {
-    throw new InternalServerErrorException(`Failed to cancel order: ${error.message}`);
-  }
   }
 
   async delete(orderId: number, currentUser: User): Promise<{ message: string }> {
-    try {
+
     const order = await this.findOne(orderId, currentUser);
 
     if (order.status !== 'cancelled') {
@@ -258,13 +262,10 @@ Promise <{ message: string; order: Order }> {
     await OrderItem.destroy({ where: { orderId } });
     await order.destroy();
     return { message: 'Order deleted successfully' };
-  } catch (error) {
-    throw new InternalServerErrorException(`Failed to delete order: ${error.message}`);
-  }
   }
 
   async updateOrderStatus(orderId: number, status: string) : Promise<Order> {
-    try {
+ 
     const order = await this.orderModel.findByPk(orderId);
     if (!order) throw new NotFoundException('Order not found');
 
@@ -272,11 +273,7 @@ Promise <{ message: string; order: Order }> {
     if (!allowedStatuses.includes(status)) {
       throw new ConflictException(`Invalid order status: ${status}`);
     }
-
     order.status = status;
     return await order.save();
-  } catch (error) {
-    throw new InternalServerErrorException(`Failed to update order status: ${error.message}`);  
-  }
   }
 }

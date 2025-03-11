@@ -15,7 +15,7 @@ export class CartService {
 
   async addItemToCart(createCartDto: CreateCartDto, @CurrentUser() currentUser: User)
     : Promise<{ message: string; cartItem: Cart }> {
-    try {
+
       const product = await Product.findByPk(createCartDto.productId);
       if (!product) throw new NotFoundException('Product not found');
       
@@ -39,14 +39,12 @@ export class CartService {
       });
 
       return { message: 'Item added to cart', cartItem };
-    } catch (error) {
-      throw new InternalServerErrorException(`Error adding item to cart: ${error.message}`);
-    }
+
   }
 
   async getCartItems(@CurrentUser() currentUser: User) 
     : Promise<{ cartItems: any[]; totalPrice: number, cartCount : number }> {
-      try {
+  
     const cartItems = await this.cartModel.findAll({
       where: { userId: currentUser.id },
       include: [
@@ -73,14 +71,11 @@ export class CartService {
       //  cartCount : await this.cartModel.count({ where: { userId: currentUser.id } })
   
     };
-  } catch (error) {
-    throw new InternalServerErrorException(`Error getting cart items: ${error.message}`);
-  }
   }
 
   async updateCartItem(itemId: number, updateCartDto: UpdateCartDto, @CurrentUser() currentUser: User)
     : Promise<{ message: string; cartItem: Cart }> {
-     try {
+
     const cartItem = await this.cartModel.findByPk(+itemId, { include: [Product] });
     if (!cartItem) throw new NotFoundException('Cart item not found');
 
@@ -102,15 +97,13 @@ export class CartService {
     await cartItem.save();
 
     return { message: 'Cart item updated successfully', cartItem };
-  }catch (error) {
-    throw new InternalServerErrorException(`Error updating cart item: ${error.message}`);
-  }
+
   }
 
   // delete a cart item 
   async removeCartItem(itemId: number, @CurrentUser() currentUser: User)
     : Promise<{ message: string, data : any, cartCount : number }> {
-   try {
+
     const cartItem = await this.cartModel.findByPk(itemId);
     if (!cartItem) throw new NotFoundException('Cart item not found');
 
@@ -121,31 +114,25 @@ export class CartService {
     return { message: 'Cart item removed successfully',
       data : {} , cartCount : await this.cartModel.count({ where: { userId: currentUser.id } })
     };
-   }catch (error) {
-    throw new InternalServerErrorException(`Error removing cart item: ${error.message}`);
-   }
+
   }
 
   // clear all carts
   async clearCart(@CurrentUser() currentUser: User) : Promise<{ message: string,
     data : any, cartCount : number
    }> {
-    try {
+
     const cartItems = await this.cartModel.findAll({ where: { userId: currentUser.id } });
     if (cartItems.length === 0) throw new NotFoundException('Cart is empty');
 
     await this.cartModel.destroy({ where: { userId: currentUser.id } });
     return { message: 'Cart cleared successfully', data : {} , cartCount : await this.cartModel.count({ where: { userId: currentUser.id } })
    };
-    }catch(error){
-      throw new InternalServerErrorException(`Error clearing cart: ${error.message}`);
-    }
   }
   
   // check if cart is valid before checkout
   async validateCart(@CurrentUser() currentUser: User): Promise<{ valid: boolean; message: string }> {
-    try{
-    
+
     const cartItems = await this.cartModel.findAll({ 
       where: { userId: currentUser.id, quantity: { [Op.gt]: 0 } },
       include: [{ model: Product, attributes: ['id', 'name', 'price', 'stock'] }]
@@ -163,8 +150,5 @@ export class CartService {
     }
 
     return { valid: true, message: 'Cart is valid' };
-  }catch(error){
-    throw new InternalServerErrorException(`Error validating cart: ${error.message}`);
-  }
   }
 }
