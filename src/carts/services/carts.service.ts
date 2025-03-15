@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException, ForbiddenException, InternalServerErrorException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException, InternalServerErrorException, BadRequestException, Scope } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { Cart } from '../models/cart.model';
 import { CreateCartDto } from '../dto/create-cart.dto';
@@ -8,10 +8,17 @@ import { Product } from 'src/products/models/product.model';
 import { CurrentUser } from 'src/utility/common/decorators/current-user.decorator';
 import { Order } from 'src/orders/models/order.model';
 import { Op } from 'sequelize';
+import { LazyModuleLoader } from '@nestjs/core';
+import { OrdersModule } from 'src/orders/orders.module';
+import { OrdersService } from 'src/orders/services/orders.service';
 
-@Injectable()
+@Injectable({ scope: Scope.REQUEST }) // This will make the service scoped to the request 
+// it will be available only in the current request , not in other requests
+// each request will have its own instance of the service
 export class CartService {
-  constructor(@InjectModel(Cart) private readonly cartModel: typeof Cart) {}
+  constructor(@InjectModel(Cart) private readonly cartModel: typeof Cart,
+  private lazyModuleLoader : LazyModuleLoader
+) {}
 
   async addItemToCart(createCartDto: CreateCartDto, @CurrentUser() currentUser: User)
     : Promise<{ message: string; cartItem: Cart }> {
@@ -151,4 +158,22 @@ export class CartService {
 
     return { valid: true, message: 'Cart is valid' };
   }
+
+      // ordersmodule benefits --> not load except when user want to checkout
+
+      async checkout(@CurrentUser() currentUser: User): Promise<{ 
+        message: string; orderId: number }> {
+
+        const {cartItems} = await this.getCartItems(currentUser);
+    
+        const moduleRef = await this.lazyModuleLoader.load(() => OrdersModule);
+        const ordersService = moduleRef.get(OrdersService);
+    
+        const { order } = await ordersService.createOrderFromCart(cartItems, currentUser.id);
+    
+        await this.clearCart(currentUser);
+    
+        return { message: 'Order placed successfully', orderId: order.id };
+    }
+    
 }

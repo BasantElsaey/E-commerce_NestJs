@@ -3,7 +3,9 @@ import {
   InternalServerErrorException, NotFoundException, ForbiddenException, 
   Param,
   UploadedFiles,
-  BadRequestException
+  BadRequestException,
+  forwardRef,
+  Inject
 } from '@nestjs/common';
 import { CreateProductDto } from '../dto/create-product.dto';
 import { UpdateProductDto } from '../dto/update-product.dto';
@@ -15,11 +17,15 @@ import { Op, Sequelize } from 'sequelize';
 import { Review } from 'src/reviews/models/review.model';
 import { Roles } from 'src/utility/common/enums/user-roles.enum';
 import { CurrentUser } from 'src/utility/common/decorators/current-user.decorator';
+import { OrdersService } from 'src/orders/services/orders.service';
 
 @Injectable()
 export class ProductsService {
   constructor(@InjectModel(Product) 
-  private readonly productModel: typeof Product) {}
+  private readonly productModel: typeof Product,
+  @Inject(forwardRef(() => OrdersService))
+  private readonly ordersService: OrdersService
+) {}
 
   async create(
     createProductDto: CreateProductDto,

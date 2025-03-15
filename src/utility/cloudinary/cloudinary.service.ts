@@ -30,4 +30,21 @@ export class CloudinaryService {
       ).end(file.buffer);
     });
   }
+
+  async uploadInvoice(file: Express.Multer.File): Promise<UploadApiResponse> {
+    return new Promise((resolve, reject) => {
+      cloudinary.uploader.upload_stream(
+        {
+          folder: 'ecommerce/invoices', 
+          resource_type: 'auto', // support type of files
+          allowed_formats: ['pdf', 'jpg', 'png', 'jpeg'],
+        },
+        (error: UploadApiErrorResponse, result: UploadApiResponse) => {
+          if (error) reject(error);
+          else resolve(result);
+        },
+      ).end(file.buffer);
+    });
+  }
 }
+

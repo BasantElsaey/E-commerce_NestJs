@@ -23,10 +23,22 @@ import { PaymentModule } from './payment/payment.module';
 import { LoggerMiddleware } from './middlewares/logger.middleware';
 import { LoggerModule } from './utility/logger/logger.module';
 import helmet from 'helmet';
+import { ScheduleModule } from '@nestjs/schedule';
+import { BullModule } from '@nestjs/bull';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 
 
 @Module({
   imports: [
+    // schedule --> for cron jobs
+    EventEmitterModule.forRoot(),
+    BullModule.forRoot({
+      redis: {
+        host: 'localhost',
+        port: 6379,
+      },
+    }),
+    ScheduleModule.forRoot(),
     ConfigModule.forRoot({envFilePath:'.env',isGlobal:true},
   )
     ,DatabaseModule,UsersModule,
@@ -38,7 +50,7 @@ import helmet from 'helmet';
     CategoriesModule,
     ProductsModule,
     AuthModule,
-    ReviewsModule,
+    // ReviewsModule,
     OrdersModule,
     CartsModule,
     PaymentModule,

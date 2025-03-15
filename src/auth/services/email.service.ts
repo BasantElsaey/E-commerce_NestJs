@@ -1,12 +1,17 @@
-import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, NotFoundException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { User } from 'src/users/models/user.model';
 import * as nodemailer from 'nodemailer';
 import * as crypto from 'crypto';
+import { Order } from 'src/orders/models/order.model';
+import { PaymentProcessedEvent } from 'src/payment/events/payment.events';
+import { OnEvent } from '@nestjs/event-emitter';
 
 @Injectable()
 export class EmailService {
-  constructor(@InjectModel(User) private readonly userModel: typeof User) {}
+  constructor(
+    @InjectModel(User) private readonly userModel: typeof User,
+) {}
 
   async findUserByEmail(email: string): Promise<User | null> {
     try {
@@ -93,4 +98,55 @@ export class EmailService {
       throw new InternalServerErrorException('Error sending password reset email. Please try again later.');
     }
   }
+
+  @OnEvent('payment.processed') // usage of EventEmitter
+  async handlePaymentProcessedEvent(event: PaymentProcessedEvent) {
+    const { orderId, amount, email } = event;
+    
+    await this.sendPaymentConfirmationEmail(orderId, email, amount);
+    
+    return { message: 'Payment confirmation email sent successfully.' };
+  }
+
+  async sendPaymentConfirmationEmail(orderId: number, email: string, amount: number) {
+      // Configure Nodemailer
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+      });
+
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: '🎉 Payment Confirmation - E-commerce NestJs',
+        html: `
+        <div style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 40px; text-align: center;">
+        <div style="background-color:rgb(15, 11, 11); padding: 20px; border-radius: 8px; max-width: 600px; margin: auto; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);">
+      
+        <div style="background-color: #0078D4; color: #ffffff; padding: 15px; font-size: 24px; font-weight: bold; border-radius: 8px 8px 0 0;">
+        🎉 Payment Confirmation
+        </div>
+
+        <div style="padding: 20px; text-align: left; font-size: 16px; color: #333;">
+        <p style="margin: 0 0 15px;"><strong>Hello,</strong></p>
+        <p style="margin: 0 0 15px;">Your payment has been processed successfully. Thank you for your purchase!</p>
+        <p style="margin: 0 0 15px;">📧 <strong>Support Team - NestJS</strong></p>
+        <p style="margin: 0;">💙 Thank you for using <strong>E-Commerce NestJS</strong>!</p>
+        </div>
+
+        <div style="background-color: #f4f4f4; padding: 10px; font-size: 14px; color: #666; border-radius: 0 0 8px 8px;">
+        &copy; ${new Date().getFullYear()} E-Commerce NestJS | All Rights Reserved
+        </div>
+        
+        </div>
+        </div>
+        `,
+      };
+
+      await transporter.sendMail(mailOptions);
+      // return { message: 'Payment confirmation email sent successfully.' };
+    }
 }

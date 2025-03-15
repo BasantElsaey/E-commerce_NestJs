@@ -11,6 +11,7 @@ import { ModelCtor } from 'sequelize-typescript';
 import { OrderItem } from 'src/orders/models/order-item.model';
 
 @Module({
+  // already this is asynchronous provider --> forRootAsync
   imports: [
     ConfigModule.forRoot({envFilePath: '.env', isGlobal: true}),
     SequelizeModule.forRootAsync({

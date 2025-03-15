@@ -5,7 +5,6 @@ import { UpdateCategoryDto } from '../dto/update-category.dto';
 import { CurrentUser } from 'src/utility/common/decorators/current-user.decorator';
 import { User } from 'src/users/models/user.model';
 import { Category } from 'src/categories/models/category.model';
-import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { AuthorizeRoles } from 'src/utility/common/decorators/authorize-roles.decorator'; 
 import { Roles } from 'src/utility/common/enums/user-roles.enum';
@@ -21,7 +20,8 @@ export class CategoriesController {
   @AuthorizeRoles(Roles.ADMIN)
   async create(@Body() createCategoryDto: CreateCategoryDto, @CurrentUser() currentUser: User): Promise<Category> {
    
-    return await this.categoriesService.create(createCategoryDto, currentUser);
+    const mokedUser = { id: currentUser.id };
+    return await this.categoriesService.create(createCategoryDto, mokedUser as User);
   }
 
   @Get()

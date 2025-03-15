@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { AuthService } from './services/auth.service';
 import { PasswordService } from './services/password.service';
 import { JwtModule } from '@nestjs/jwt';
@@ -25,7 +25,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
   ],
   controllers: [AuthController],
   providers: [
-    AuthService, PasswordService, 
+    AuthService, PasswordService,
     JwtStrategy,EmailService,TwoFactorAuthService
   ],
   exports: [

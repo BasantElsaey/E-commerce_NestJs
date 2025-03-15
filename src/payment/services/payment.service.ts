@@ -10,10 +10,14 @@ import { Payment } from '../models/payment.model';
 import { CurrentUser } from 'src/utility/common/decorators/current-user.decorator';
 import { User } from 'src/users/models/user.model';
 import { CreatePaymentDto } from '../dto/create-payment.dto';
+import {Job, Queue} from 'bull'
+import {InjectQueue} from '@nestjs/bull'
+import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class PaymentService {
   private stripe: Stripe;
+  private readonly logger = new Logger(PaymentService.name);
 
   constructor(
     private configService: ConfigService,
@@ -22,26 +26,30 @@ export class PaymentService {
     @InjectModel(OrderItem) private orderItemsModel: typeof OrderItem,
     @InjectModel(Product) private productModel: typeof Product,
     @InjectModel(Payment) private paymentModel: typeof Payment,
+    @InjectQueue('payment') private paymentQueue: Queue
+
   ) {
     const stripeSecretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
-    // const apiVersion = this.configService.get<string>('STRIPE_API_VERSION');
 
     if (!stripeSecretKey) {
       throw new Error('STRIPE_SECRET_KEY is not defined in the environment variables');
     }
 
     this.stripe = new Stripe(stripeSecretKey, {
-      // apiVersion: apiVersion as Stripe.LatestApiVersion,
+      apiVersion: this.configService.get<string>('STRIPE_API_VERSION') as Stripe.LatestApiVersion,
     });
   }
 
   async createPaymentIntent(
     currency: string, paymentMethod: string, @CurrentUser() currentUser: User,
+    cartItems : any[],
+    orderId : number,
     @Body() createPaymentDto : CreatePaymentDto 
   ): 
   Promise<{ clientSecret: string }> {
     
-      const { order } = await this.ordersService.createOrderFromCart(currentUser.id, currentUser);
+      const order = await this.ordersService.createOrderFromCart
+      ( cartItems, currentUser.id );
       if (!order) {
         throw new BadRequestException('Failed to create order from cart');
       }
@@ -62,9 +70,9 @@ export class PaymentService {
       if (createPaymentDto.paymentMethod === 'cod') {
         await this.paymentModel.create({
           paymentIntentId: null,
-          orderId: order.id,
+          totalPrice: order.totalPrice * 100,
+          orderId: createPaymentDto.orderId,
           userId: currentUser.id,
-          amount: order.totalPrice * 100,
           currency,
           status: 'pending',
           method: 'cod',
@@ -78,7 +86,7 @@ export class PaymentService {
         amount: order.totalPrice * 100,
         currency,
         payment_method_types: availableMethods[createPaymentDto.paymentMethod],
-        metadata: { orderId: order.id.toString() },
+        metadata: { orderId: createPaymentDto.orderId.toString() },
       });
 
       if (!paymentIntent.client_secret) {
@@ -87,7 +95,7 @@ export class PaymentService {
 
       await this.paymentModel.create({
         paymentIntentId: paymentIntent.id,
-        orderId: order.id,
+        orderId: createPaymentDto.orderId,
         userId: currentUser.id,
         amount: order.totalPrice * 100,
         currency,
@@ -178,5 +186,28 @@ export class PaymentService {
         console.error(`Payment failed for Order ID ${paymentIntent.metadata.orderId}`);
         await this.paymentModel.update({ status: 'failed' }, { where: { paymentIntentId: paymentIntent.id } });
       }
+  }
+
+  async processPayment(createPaymentDto: CreatePaymentDto, @CurrentUser() currentUser: User
+): Promise<{ message: string; job: Job}> {
+
+  // this.logger.log --> public info
+     this.logger.log(`Starting payment processing for orderId ${createPaymentDto.orderId} with amount ${createPaymentDto.amount}`);
+     const job = await this.paymentQueue.add('process', 
+      { orderId: createPaymentDto.orderId, amount : createPaymentDto.amount ,
+        email : currentUser.email},
+      {
+        attempts : 3,
+        backoff: 5000
+      });
+      if (!job) {
+
+        this.logger.error(`Failed to add payment job to queue for orderId 
+          ${createPaymentDto.orderId}`); 
+      }
+      // this.logger.debug --> details of debug
+      this.logger.debug(`payment queued successfully with orderId ${createPaymentDto.orderId}`);
+
+      return { message: 'Payment Processing Started', job };
   }
 }

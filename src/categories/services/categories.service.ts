@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException, 
 BadRequestException, ConflictException, InternalServerErrorException,
-NotFoundException } from '@nestjs/common';
+NotFoundException, 
+OnModuleInit} from '@nestjs/common';
 import { CreateCategoryDto } from '../dto/create-category.dto';
 import { UpdateCategoryDto } from '../dto/update-category.dto';
 import { InjectModel } from '@nestjs/sequelize';
@@ -9,48 +10,33 @@ import { User } from 'src/users/models/user.model';
 import { Op } from 'sequelize';
 
 @Injectable()
-export class CategoriesService {
+// implements OnModuleInit to make sure that database is not empty before using it
+export class CategoriesService implements OnModuleInit {
+
   constructor(@InjectModel(Category) 
   private readonly categoryModel: typeof Category) {}
-
-  // async create(createCategoryDto: CreateCategoryDto, currentUser: User): 
-  // Promise<Category> {
-  //   try {
-  //     // check if title and description are provided
-  //     if (!createCategoryDto.title || !createCategoryDto.description) {
-  //       throw new BadRequestException('Title and description are required');
-  //     }
-
-  //     // check if user is authenticated
-  //     if (!currentUser || !currentUser.id) {
-  //       throw new UnauthorizedException('User not authenticated');
-  //     }
-
-  //     // check if category with the same title already exists
-  //     const existingCategory = await this.categoryModel.findOne({
-  //       where: { title: createCategoryDto.title, userId: currentUser.id },
-  //     });
-
-  //     if (existingCategory) {
-  //       throw new ConflictException('Category with this title already exists');
-  //     }
-
-  //     // create category
-  //     const category = new this.categoryModel({
-  //       title: createCategoryDto.title,
-  //       description: createCategoryDto.description,
-  //       userId: currentUser.id,
-  //     } as Category);
-
-  //     await category.save();
-  //     return category;
-
-  //   } catch (error) {
-  //      // handle errors in case of a database error
-  //     throw new InternalServerErrorException(
-  //       `Failed to create category: ${error.message}`);
-  //   }
-  // }
+async onModuleInit() {
+       // usage of onModule to make sure that database is not empty 
+       // sending default categories, 
+       // otherwise it will throw an error
+        const categoryCount = await this.categoryModel.count();
+        if (categoryCount === 0) {
+          const defaultUserId = 1 ;
+          const userExists = await this.categoryModel.sequelize?.models.User.findByPk(defaultUserId);
+          if (!userExists) {
+            throw new NotFoundException('Default user not found, cannot initialize categories');
+          }
+    
+          await this.categoryModel.bulkCreate([
+            { title: 'Electronics', description: 'Electronic devices', userId: defaultUserId },
+            { title: 'Clothing', description: 'Fashion and apparel', userId: defaultUserId },
+            { title: 'Books', description: 'Books and literature', userId: defaultUserId },
+          ]as Category[]);
+          console.log('Default categories added successfully');
+        } else {
+          console.log(`CategoriesService initialized with ${categoryCount} existing categories`);
+        }
+  }
 
   async create(createCategoryDto: CreateCategoryDto, currentUser: User): 
   Promise<Category> {

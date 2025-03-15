@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Patch, Delete, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Delete, Param, Body, UseGuards, UseInterceptors, UploadedFile, Logger, Res, Sse } from '@nestjs/common';
 import { OrdersService } from '../services/orders.service';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { UpdateOrderDto } from '../dto/update-order.dto';
@@ -12,12 +12,21 @@ import { AuthorizeRoles } from 'src/utility/common/decorators/authorize-roles.de
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Order } from '../models/order.model';
 import { OrderItem } from '../models/order-item.model';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import {FastifyReply} from 'fastify';
+import { storage } from 'src/utility/cloudinary/cloudinary.config';
+import { Observable } from 'rxjs';
 
 
 @Controller('orders')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+   private readonly logger = new Logger(OrdersController.name);
+  constructor(
+    private readonly ordersService: OrdersService,
+    private readonly eventEmitter: EventEmitter2
+  ) {}
 
   // @Post('/create-order')
   // async create(@Body() createOrderDto: CreateOrderDto, @CurrentUser() currentUser: User)
@@ -26,9 +35,9 @@ export class OrdersController {
   // }
 
   @Post('/create-order-from-cart')
-  async createOrderFromCart(@CurrentUser() currentUser: User,userId: number) 
+  async createOrderFromCart(@CurrentUser() currentUser: User,userId: number, cartItems: any[]) 
   : Promise<{ message: string; order: Order }> {
-    return this.ordersService.createOrderFromCart(userId,currentUser);
+    return this.ordersService.createOrderFromCart( cartItems, userId);
   }
 
  // get all of current user orders
@@ -97,4 +106,25 @@ export class OrdersController {
   : Promise<{ message: string }> {
     return this.ordersService.delete(orderId, currentUser);
   }
+
+  // Updates order 
+  @Sse('/order-updates/:id')
+  async orderUpdates(@Param('id') orderId: number): Promise<Observable<any>> {
+    return new Observable((observer) => {
+
+      this.eventEmitter.on('order.status.updated', (data) => {
+        if (data.orderId === orderId) {
+          observer.next({ data: { event: 'statusUpdated', status: data.status, orderId } });
+        }
+      });
+
+      // this.eventEmitter.on('invoice.uploaded', (data) => {
+      //   if (data.orderId === orderId) {
+      //     observer.next({ data: { event: 'invoiceUploaded', url: data.url, orderId } });
+      //   }
+      // });
+    });
+  }
+
 }
+

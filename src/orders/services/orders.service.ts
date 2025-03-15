@@ -1,6 +1,11 @@
 import { 
   Injectable, NotFoundException, ForbiddenException, ConflictException, InternalServerErrorException, 
-  BadRequestException
+  BadRequestException,
+  forwardRef,
+  Inject,
+  Res,
+  UploadedFile,
+  Logger
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { Order } from '../models/order.model';
@@ -13,20 +18,38 @@ import { UpdateOrderDto } from '../dto/update-order.dto';
 import { UpdateOrderItemDto } from '../dto/update-order-item.dto';
 import { CurrentUser } from 'src/utility/common/decorators/current-user.decorator';
 import { Cart } from 'src/carts/models/cart.model';
-
-import { Sequelize } from 'sequelize-typescript'; 
-
+import { Op } from 'sequelize';
+import { ProductsService } from 'src/products/services/products.service';
+import { Sequelize } from 'sequelize-typescript';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class OrdersService {
- 
+
+  private readonly logger = new Logger(OrdersService.name);
   constructor(
     @InjectModel(Order) private readonly orderModel: typeof Order,
     @InjectModel(OrderItem) private readonly orderItemModel: typeof OrderItem,
     @InjectModel(Cart) private readonly cartModel: typeof Cart,
     @InjectModel(Product) private readonly productModel: typeof Product,
-    private readonly sequelize: Sequelize
+    // circular dependency
+    @Inject(forwardRef(()=> ProductsService))
+    private readonly productsService: ProductsService,
+    private readonly sequelize : Sequelize,
+    private readonly eventEmitter: EventEmitter2
     ) {}
+
+   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+
+   async clearExpiredOrders() {
+    await this.orderModel.destroy({
+      where: {
+        where: { createdAt: { [Op.lt]: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } }, 
+      } // delete older orders than 30 days
+    });
+    console.log('Expired orders deleted');
+  }
 
   // async create(createOrderDto: CreateOrderDto, currentUser: User)
   // : Promise<{ message: string; order: Order }> {
@@ -82,69 +105,65 @@ export class OrdersService {
   //   throw new InternalServerErrorException(`Failed to create order: ${error.message}`);
   // }
 // }
-
 async createOrderFromCart(
+  cartItems: any[],   
   userId: number,
-  @CurrentUser() currentUser: User
-): Promise<{ message: string; order: Order }> {
+): Promise<{
+    message: string; order: Order,totalPrice: number
+}> {
+  
   const transaction = await this.sequelize.transaction(); // Start Transaction
 
-    const cartItems = await this.cartModel.findAll({
-      where: { userId },
-      include: [{ model: Product }],
-      lock: transaction.LOCK.UPDATE, // Lock to prevent race conditions
-      transaction
-    });
+  if (cartItems.length === 0) {
+    throw new NotFoundException('Your cart is empty');
+  }
 
-    if (cartItems.length === 0) {
-      throw new NotFoundException('Your cart is empty');
+  for (const cartItem of cartItems) {
+    if (cartItem.product.stock < cartItem.quantity) {
+      throw new BadRequestException(
+        `Product ${cartItem.product.name} is out of stock`
+      );
     }
+  }
 
-    for (const cartItem of cartItems) {
-      if (cartItem.product.stock < cartItem.quantity) {
-        throw new BadRequestException(
-          `Product ${cartItem.product.name} is out of stock`
-        );
-      }
-    }
+  const totalPrice = cartItems.reduce(
+    (sum, item) => sum + item.quantity * item.product.price,
+    0
+  );
 
-    const totalPrice = cartItems.reduce(
-      (sum, item) => sum + item.quantity * item.product.price,
-      0
-    );
+  const order = await this.orderModel.create(
+    {
+      userId,
+      totalPrice,
+      status: 'pending',
+    } as Order,
+    { transaction }
+  );
 
-    const order = await this.orderModel.create(
+  for (const cartItem of cartItems) {
+    await this.orderItemModel.create(
       {
-        userId,
-        totalPrice,
-        status: 'pending',
-      } as Order,
+        orderId: order.id,
+        productId: cartItem.productId,
+        quantity: cartItem.quantity,
+        price: cartItem.product.price,
+      } as OrderItem,
       { transaction }
     );
 
-    for (const cartItem of cartItems) {
-      await this.orderItemModel.create(
-        {
-          orderId: order.id,
-          productId: cartItem.productId,
-          quantity: cartItem.quantity,
-          price: cartItem.product.price,
-        } as OrderItem,
-        { transaction }
-      );
+    await this.productModel.update(
+      { stock: cartItem.product.stock - cartItem.quantity },
+      { where: { id: cartItem.product.id }, transaction }
+    );
+  }
 
-      await this.productModel.update(
-        { stock: cartItem.product.stock - cartItem.quantity },
-        { where: { id: cartItem.product.id }, transaction }
-      );
-    }
+  await this.cartModel.destroy({ where: { userId }, transaction });
 
-    await this.cartModel.destroy({ where: { userId }, transaction });
+  await transaction.commit(); // Commit Transaction
 
-    await transaction.commit(); // Commit Transaction
-
-    return { message: 'Order placed successfully', order };
+  return { message: 'Order placed successfully', order, totalPrice };
 }
+
 
   async findUserOrders(@CurrentUser() currentUser: User): Promise<Order[]> {
    
@@ -274,6 +293,41 @@ async createOrderFromCart(
       throw new ConflictException(`Invalid order status: ${status}`);
     }
     order.status = status;
-    return await order.save();
+    await order.save();
+    this.eventEmitter.emit('order.status.updated', { orderId, status }); 
+    return order;
   }
+
+//   async saveInvoiceUrl(orderId: number, url: string): Promise<void> {
+//     const order = await this.orderModel.findByPk(orderId);
+//     if (!order) throw new NotFoundException('Order not found');
+
+//     this.logger.log(`Saving invoice URL for order ${orderId}: ${url}`);
+//     await order.update({ invoiceUrl: url });
+//     this.eventEmitter.emit('invoice.uploaded', { orderId, url }); 
+//     this.logger.debug(`Invoice URL saved for order ${orderId}`);
+//   }
+// }
+
+// async uploadInvoice(@UploadedFile() file: Express.Multer.File, @Res() res: FastifyReply) {
+//   this.logger.log(`Uploading invoice: ${file.originalname}`);
+
+//   try {
+//     const url = (file as any).path;
+
+//     this.logger.debug(`Invoice uploaded to Cloudinary: ${url}`);
+//     this.eventEmitter.emit('invoice.uploaded', { url });
+
+//     res.setCookie('invoiceUrl', url, {
+//       httpOnly: true,
+//       secure: process.env.NODE_ENV === 'production',
+//       maxAge: 1000 * 60 * 60,
+//     });
+
+//     return res.status(200).send({ message: 'Invoice uploaded successfully', url });
+//   } catch (error) {
+//     this.logger.error(`Failed to upload invoice: ${error.message}`, error.stack);
+//     throw error;
+//   }
+// }
 }

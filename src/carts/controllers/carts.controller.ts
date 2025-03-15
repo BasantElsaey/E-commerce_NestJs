@@ -53,4 +53,9 @@ export class CartController {
   async validateCart(@CurrentUser() currentUser: User): Promise<{ message: string }> {
     return await this.cartService.validateCart(currentUser);
   }
+
+  @Post('checkout')
+  async checkout(@CurrentUser() currentUser: User): Promise<{ message: string, orderId: number }> {
+    return await this.cartService.checkout(currentUser);
+  }
 }
